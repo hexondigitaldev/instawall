@@ -1,0 +1,33 @@
+client_id = "c77148f0023961b7476c59528cdfa4f3"
+name = "instagram"
+application_url = "https://example.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[webhooks]
+api_version = "2026-04"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app-uninstalled"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers-data-request"
+  compliance_topics = ["customers/data_request"]
+  
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers-redact"
+  compliance_topics = ["customers/redact"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/shop-redact"
+  compliance_topics = ["shop/redact"]
+
+[access_scopes]
+scopes = "read_themes"
+
+[auth]
+redirect_urls = [ "https://example.com/api/auth"]

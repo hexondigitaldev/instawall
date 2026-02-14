@@ -1,0 +1,558 @@
+<link href="https://vjs.zencdn.net/8.23.4/video-js.css" rel="stylesheet">
+<script src="https://vjs.zencdn.net/8.23.4/video.min.js" defer></script>
+<script defer>
+  (function () {
+    'use strict';
+    window.InstagramReelsApp = {
+      reelsData: null,
+      feedSettings: null,
+      username: '',
+      profilePictureUrl: '',
+      isInitialized: false,
+      currentPlayer: null,
+      blocks: new Map(),
+      async init() {
+        if (this.isInitialized) return;
+        this.isInitialized = true;
+        console.log('Instagram Reels App: Initializing...');
+        const blockElements = document.querySelectorAll('[data-instagram-reels-block]');
+        if (blockElements.length === 0) {
+          console.log('Instagram Reels App: No blocks found on page');
+          return;
+        }
+
+        const firstContainer = blockElements[0].querySelector('[data-shop]');
+        if (!firstContainer) {
+          console.error('Instagram Reels App: No shop domain found');
+          return;
+        }
+
+        const shop = firstContainer.dataset.shop;
+        console.log('Instagram Reels App: Shop domain:', shop);
+
+        await this.fetchData(shop);
+        blockElements.forEach((blockElement) => {
+          const blockId = blockElement.dataset.blockId;
+          const container = blockElement.querySelector('.instagram-reels-container');
+          if (container) {
+            this.renderBlock(blockId, container);
+          }
+        });
+
+        console.log('Instagram Reels App: Initialized successfully');
+      },
+
+      async fetchData(shop) {
+        try {
+          const apiUrl = `https://forums-decision-source-qualities.trycloudflare.com/api/reels/${shop}`;
+          console.log('Instagram Reels App: Fetching from:', apiUrl);
+          const response = await fetch(apiUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const data = await response.json();
+          console.log('Instagram Reels App: Data received:', data);
+          this.reelsData = data.media || [];
+          this.feedSettings = data.settings || {};
+          this.username = data.username || '';
+          this.profilePictureUrl = data.profilePictureUrl || '';
+
+          console.log('Instagram Reels App: Loaded', this.reelsData.length, 'media items');
+        } catch (error) {
+          console.error('Instagram Reels App: Error fetching data:', error);
+          this.reelsData = [];
+          this.feedSettings = {};
+        }
+      },
+
+      registerBlock(blockId, container, settings) {
+        console.log('Instagram Reels App: Registering block:', blockId);
+        this.blocks.set(blockId, { container, settings });
+        if (this.reelsData !== null) {
+          this.renderBlock(blockId, container);
+        }
+      },
+
+      renderBlock(blockId, container) {
+        const media = this.reelsData;
+        const settings = this.feedSettings;
+
+        if (!media || media.length === 0) {
+          this.renderEmpty(container);
+          return;
+        }
+
+        let titleHtml = '';
+        if (settings.feedTitle) {
+          titleHtml = `<h2 class="instagram-reels-heading">${this.escapeHtml(settings.feedTitle)}</h2>`;
+        }
+
+        let feedHtml = '';
+        const layout = settings.layout || 'slider';
+
+        if (layout === 'grid') {
+          feedHtml = this.renderGrid(media, settings, blockId);
+        } else {
+          feedHtml = this.renderSlider(media, settings, blockId);
+        }
+
+        container.innerHTML = titleHtml + feedHtml;
+        console.log('Instagram Reels App: Rendered block', blockId, 'with', media.length, 'items in', layout, 'layout');
+      },
+
+      renderGrid(media, settings, blockId) {
+        const spacing = this.getSpacingValue(settings.postSpacing);
+        const borderRadius = this.getBorderRadius(settings.roundedCorners);
+        const aspectRatio = this.getAspectRatio(settings.format);
+        const isCircle = settings.format === 'circle';
+
+        return `
+        <div class="instagram-reels-grid" style="gap: ${spacing};">
+          ${media
+            .map((item) => this.renderMediaCard(item, settings, borderRadius, aspectRatio, isCircle, blockId))
+            .join('')}
+        </div>
+      `;
+      },
+
+      renderSlider(media, settings, blockId) {
+        const spacing = this.getSpacingValue(settings.postSpacing);
+        const borderRadius = this.getBorderRadius(settings.roundedCorners);
+        const aspectRatio = this.getAspectRatio(settings.format);
+        const isCircle = settings.format === 'circle';
+
+        return `
+        <div class="instagram-reels-slider">
+          <button class="slider-nav slider-prev" onclick="window.InstagramReelsApp.slideReels('${blockId}', -1)">‹</button>
+          <div class="slider-track" id="slider-track-${blockId}" style="gap: ${spacing};">
+            ${media
+              .map((item) => this.renderMediaCard(item, settings, borderRadius, aspectRatio, isCircle, blockId))
+              .join('')}
+          </div>
+          <button class="slider-nav slider-next" onclick="window.InstagramReelsApp.slideReels('${blockId}', 1)">›</button>
+        </div>
+      `;
+      },
+
+      // Render individual media card
+      renderMediaCard(item, settings, borderRadius, aspectRatio, isCircle, blockId) {
+        const thumbnail = item.thumbnailUrl || item.mediaUrl || '';
+        const cardBorderRadius = isCircle ? '50%' : borderRadius;
+        const isVideo = item.mediaType === 'VIDEO';
+
+        let clickHandler = '';
+        let linkHref = 'javascript:void(0)';
+        let linkTarget = '';
+
+        switch (settings.onPostClick) {
+          case 'detailed_popup':
+            clickHandler = `onclick="window.InstagramReelsApp.openDetailedPopup('${this.escapeForJs(
+              item.permalink
+            )}', '${this.escapeForJs(thumbnail)}', '${this.escapeForJs(item.mediaUrl || '')}', '${this.escapeForJs(
+              item.caption || ''
+            )}', '${item.mediaType}'); return false;"`;
+            break;
+          case 'minimal_popup':
+            if (isVideo) {
+              clickHandler = `onclick="window.InstagramReelsApp.openMinimalPopup('${blockId}', '${this.escapeForJs(
+                thumbnail
+              )}', '${this.escapeForJs(item.mediaUrl || '')}', '${this.escapeForJs(item.permalink)}'); return false;"`;
+            } else {
+              clickHandler = `onclick="window.InstagramReelsApp.openImagePopup('${this.escapeForJs(
+                item.mediaUrl || thumbnail
+              )}', '${this.escapeForJs(item.permalink)}'); return false;"`;
+            }
+            break;
+          case 'do_nothing':
+            clickHandler = `onclick="return false;"`;
+            break;
+          case 'go_to_instagram':
+          default:
+            linkHref = item.permalink;
+            linkTarget = 'target="_blank" rel="noopener noreferrer"';
+            break;
+        }
+
+        return `
+        <div class="instagram-reel-card">
+          <a href="${linkHref}" ${linkTarget} ${clickHandler}>
+            <div class="reel-thumbnail" style="padding-bottom: ${aspectRatio}; border-radius: ${cardBorderRadius}; overflow: hidden;">
+              ${
+                thumbnail
+                  ? `<img src="${this.escapeHtml(thumbnail)}" alt="Instagram ${
+                      isVideo ? 'Video' : 'Image'
+                    }" loading="lazy" style="border-radius: ${cardBorderRadius};">`
+                  : ''
+              }
+              <div class="reel-overlay">
+                ${
+                  isVideo
+                    ? `
+                  <svg class="play-icon" viewBox="0 0 24 24" fill="white">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                `
+                    : ''
+                }
+              </div>
+            </div>
+          </a>
+        </div>
+      `;
+      },
+
+      slideReels(blockId, direction) {
+        const track = document.getElementById(`slider-track-${blockId}`);
+        if (!track) return;
+
+        const cardWidth = track.querySelector('.instagram-reel-card')?.offsetWidth || 200;
+        const gap = parseInt(window.getComputedStyle(track).gap) || 20;
+        const scrollAmount = (cardWidth + gap) * direction;
+
+        track.scrollBy({
+          left: scrollAmount,
+          behavior: 'smooth',
+        });
+      },
+
+      openDetailedPopup(permalink, thumbnail, mediaUrl, caption, mediaType) {
+        const popup = document.createElement('div');
+        popup.className = 'instagram-popup-overlay';
+
+        const isVideo = mediaType === 'VIDEO';
+        const mediaContent = isVideo
+          ? `<video class="popup-media-content" autoplay muted loop playsinline>
+             <source src="${this.escapeHtml(mediaUrl)}" type="video/mp4">
+           </video>`
+          : `<img src="${this.escapeHtml(mediaUrl || thumbnail)}" class="popup-media-content" alt="Instagram post">`;
+
+        popup.innerHTML = `
+        <div class="instagram-popup-detailed-modern">
+          <button class="popup-close-modern" onclick="this.parentElement.parentElement.remove()">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="white">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+          
+          <div class="popup-content-wrapper">
+            <!-- Media Section -->
+            <div class="popup-media-section">
+              ${mediaContent}
+            </div>
+            
+            <!-- Info Section -->
+            <div class="popup-info-section">
+              <!-- Header with profile -->
+              <div class="popup-header">
+                <div class="popup-profile">
+                  <div class="popup-profile-pic">
+                    ${
+                      this.profilePictureUrl
+                        ? `<img src="${this.escapeHtml(this.profilePictureUrl)}" alt="Profile">`
+                        : `
+                      <svg viewBox="0 0 24 24" width="32" height="32" fill="#999">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                      </svg>
+                    `
+                    }
+                  </div>
+                  <span class="popup-username">${this.escapeHtml(this.username || 'Instagram')}</span>
+                </div>
+              </div>
+              
+              <!-- Caption Section -->
+              <div class="popup-caption-section">
+                ${
+                  caption
+                    ? `
+                  <div class="popup-caption-content">
+                    <span class="caption-username">${this.escapeHtml(this.username || 'Instagram')}</span>
+                    <span class="caption-text">${this.escapeHtml(caption)}</span>
+                  </div>
+                `
+                    : ''
+                }
+              </div>
+              
+              <!-- Actions -->
+              <div class="popup-actions-section">
+                <a href="${this.escapeHtml(
+                  permalink
+                )}" target="_blank" rel="noopener noreferrer" class="popup-instagram-btn">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                    <path d="M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2m-.2 2A3.6 3.6 0 0 0 4 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6m9.65 1.5a1.25 1.25 0 0 1 1.25 1.25A1.25 1.25 0 0 1 17.25 8 1.25 1.25 0 0 1 16 6.75a1.25 1.25 0 0 1 1.25-1.25M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/>
+                  </svg>
+                  View on Instagram
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+        document.body.appendChild(popup);
+        popup.onclick = (e) => {
+          if (e.target === popup) {
+            popup.remove();
+          }
+        };
+      },
+
+      openMinimalPopup(blockId, thumbnail, videoUrl, permalink) {
+        const existingPopup = document.querySelector('.instagram-popup-overlay');
+        if (existingPopup) {
+          if (this.currentPlayer) {
+            this.currentPlayer.dispose();
+            this.currentPlayer = null;
+          }
+          existingPopup.remove();
+        }
+
+        const uniqueId = 'video-player-' + blockId + '-' + Date.now();
+
+        const popup = document.createElement('div');
+        popup.className = 'instagram-popup-overlay minimal-popup';
+        popup.innerHTML = `
+        <div class="instagram-popup-minimal">
+          <button class="popup-close" aria-label="Close">×</button>
+          
+          <div class="popup-video-container">
+            <video
+              id="${uniqueId}"
+              class="video-js vjs-big-play-centered"
+              preload="auto"
+              autoplay
+              muted
+              loop
+              playsinline
+              poster="${this.escapeHtml(thumbnail)}"
+              data-setup='{"controls": false, "fluid": true}'
+            >
+              <source src="${this.escapeHtml(videoUrl)}" type="video/mp4" />
+              <p class="vjs-no-js">
+                To view this video please enable JavaScript
+              </p>
+            </video>
+          </div>
+          
+          <div class="popup-actions">
+            <button class="popup-mute" aria-label="Toggle mute">
+<svg class="mute-icon" viewBox="0 0 24 24" fill="white" width="24" height="24">
+                  <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                </svg>
+            </button>
+            <a href="${this.escapeHtml(
+              permalink
+            )}" target="_blank" rel="noopener noreferrer" class="popup-instagram-link">
+              <svg viewBox="0 0 24 24" fill="white" width="24" height="24">
+                <path d="M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2m-.2 2A3.6 3.6 0 0 0 4 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6m9.65 1.5a1.25 1.25 0 0 1 1.25 1.25A1.25 1.25 0 0 1 17.25 8 1.25 1.25 0 0 1 16 6.75a1.25 1.25 0 0 1 1.25-1.25M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      `;
+
+        document.body.appendChild(popup);
+
+        // Initialize Video.js
+        const self = this;
+        setTimeout(() => {
+          if (window.videojs) {
+            self.currentPlayer = window.videojs(uniqueId, {
+              controls: false,
+              autoplay: true,
+              muted: true,
+              loop: true,
+              fluid: true,
+              responsive: true,
+              preload: 'auto',
+            });
+
+            const muteBtn = popup.querySelector('.popup-mute');
+            let isMuted = true;
+
+            muteBtn.addEventListener('click', () => {
+              isMuted = !isMuted;
+              self.currentPlayer.muted(isMuted);
+
+              muteBtn.innerHTML = isMuted
+                ? `<svg class="mute-icon" viewBox="0 0 24 24" fill="white" width="24" height="24">
+                  <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                </svg>`
+                : `<svg class="mute-icon" viewBox="0 0 24 24" fill="white" width="24" height="24">
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+                </svg>`;
+            });
+          }
+        }, 100);
+
+        popup.querySelector('.popup-close').onclick = () => {
+          if (self.currentPlayer) {
+            self.currentPlayer.dispose();
+            self.currentPlayer = null;
+          }
+          popup.remove();
+        };
+
+        popup.onclick = (e) => {
+          if (e.target === popup) {
+            if (self.currentPlayer) {
+              self.currentPlayer.dispose();
+              self.currentPlayer = null;
+            }
+            popup.remove();
+          }
+        };
+      },
+
+      // Open image popup
+      openImagePopup(imageUrl, permalink) {
+        const popup = document.createElement('div');
+        popup.className = 'instagram-popup-overlay minimal-popup';
+        popup.innerHTML = `
+        <div class="instagram-popup-minimal">
+          <button class="popup-close" aria-label="Close">×</button>
+          
+          <div class="popup-image-container">
+            <img src="${this.escapeHtml(imageUrl)}" alt="Instagram post" class="popup-image-full">
+          </div>
+          
+          <div class="popup-actions">
+            <a href="${this.escapeHtml(
+              permalink
+            )}" target="_blank" rel="noopener noreferrer" class="popup-instagram-link">
+              <svg viewBox="0 0 24 24" fill="white" width="24" height="24">
+                <path d="M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2m-.2 2A3.6 3.6 0 0 0 4 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6m9.65 1.5a1.25 1.25 0 0 1 1.25 1.25A1.25 1.25 0 0 1 17.25 8 1.25 1.25 0 0 1 16 6.75a1.25 1.25 0 0 1 1.25-1.25M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      `;
+
+        document.body.appendChild(popup);
+
+        popup.querySelector('.popup-close').onclick = () => {
+          popup.remove();
+        };
+
+        popup.onclick = (e) => {
+          if (e.target === popup) {
+            popup.remove();
+          }
+        };
+      },
+
+      // Render empty state
+      renderEmpty(container) {
+        container.innerHTML = `
+        <div class="instagram-reels-empty">
+          <p>No Instagram content to display yet.</p>
+        </div>
+      `;
+      },
+
+      // Render error state
+      renderError(container) {
+        container.innerHTML = `
+        <div class="instagram-reels-error">
+          <p>Unable to load Instagram content at this time.</p>
+        </div>
+      `;
+      },
+
+      // Utility: Get spacing value
+      getSpacingValue(spacing) {
+        switch (spacing) {
+          case 'small':
+            return '8px';
+          case 'medium':
+            return '16px';
+          case 'large':
+            return '24px';
+          case 'none':
+            return '0px';
+          default:
+            return '8px';
+        }
+      },
+
+      // Utility: Get border radius
+      getBorderRadius(corners) {
+        switch (corners) {
+          case 'none':
+            return '0px';
+          case 'small':
+            return '8px';
+          case 'medium':
+            return '16px';
+          case 'large':
+            return '24px';
+          default:
+            return '0px';
+        }
+      },
+
+      // Utility: Get aspect ratio
+      getAspectRatio(format) {
+        switch (format) {
+          case '3:4':
+            return '133.33%';
+          case '4:5':
+            return '125%';
+          case '1:1':
+            return '100%';
+          case '9:16':
+            return '177.78%';
+          case '4:3':
+            return '75%';
+          case 'circle':
+            return '100%';
+          default:
+            return '125%';
+        }
+      },
+
+      // Utility: Escape HTML
+      escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      },
+
+      // Utility: Escape for JavaScript strings
+      escapeForJs(text) {
+        if (!text) return '';
+        return text
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, "\\'")
+          .replace(/"/g, '\\"')
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '\\r');
+      },
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        window.InstagramReelsApp.init();
+      });
+    } else {
+      window.InstagramReelsApp.init();
+    }
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Instagram Reels App",
+  "target": "body",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enable_reels",
+      "label": "Enable Instagram Reels",
+      "default": true
+    }
+  ]
+}
+{% endschema %}

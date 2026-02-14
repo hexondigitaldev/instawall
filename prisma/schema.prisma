@@ -1,0 +1,92 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+model InstagramConnection {
+  id                  String          @id @default(cuid())
+  shop                String          @unique
+  instagramAccountId  String
+  accessToken         String
+  username            String
+  profilePictureUrl   String?
+  followersCount      Int?
+  mediaCount          Int?
+  connectedAt         String
+  tokenExpiresAt      String
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  media               InstagramMedia[]
+  feedSettings        FeedSettings?   
+}
+
+model InstagramMedia {
+  id                    String              @id @default(cuid())
+  instagramConnectionId String
+  instagramMediaId      String              @unique
+  mediaType             String              // "IMAGE" or "VIDEO" or "CAROUSEL_ALBUM"
+  permalink             String              
+  thumbnailUrl          String?            
+  mediaUrl              String              
+  caption               String?             
+  timestamp             String              
+  likeCount             Int?                
+  commentsCount         Int?                
+  viewsCount            Int?                
+  displayOrder          Int                 
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  connection            InstagramConnection @relation(fields: [instagramConnectionId], references: [id], onDelete: Cascade)  
+  
+  @@index([instagramConnectionId])
+  @@index([displayOrder])
+  @@index([mediaType])
+}
+
+model FeedSettings {
+  id                    String              @id @default(cuid())
+  shop                  String              @unique
+  feedTitle             String              @default("Amazing Feed")
+  mediaFilter           String              @default("both")          // NEW FIELD: "images", "videos", "both"
+  onPostClick           String              @default("go_to_instagram")
+  postSpacing           String              @default("small")
+  roundedCorners        String              @default("none")
+  layout                String              @default("slider")
+  format                String              @default("3:4")
+  responsiveLayout      String              @default("auto")
+  sliderBehavior        String              @default("static")
+  gridColumns           Int?                @default(5)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  instagramConnectionId String              @unique
+  connection            InstagramConnection @relation(fields: [instagramConnectionId], references: [id], onDelete: Cascade)
+  @@index([shop])
+}
