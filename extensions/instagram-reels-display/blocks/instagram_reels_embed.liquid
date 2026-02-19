@@ -38,7 +38,7 @@
 
       async fetchData(shop) {
         try {
-          const apiUrl = `https://vercal.websterzone.com/instawall/api/reels/${shop}`;
+          const apiUrl = `https://vercal.websterzone.com/api/reels/${shop}`;
           const response = await fetch(apiUrl);
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
