@@ -16,9 +16,6 @@ export const action = async ({ request }) => {
 
 
   const authHeader = request.headers.get("Authorization");
-  
-  // const isVercelCron = request.headers.get("user-agent")?.includes("vercel-cron");
-
   const cronSecret = "1234";
   const isAuthorized = authHeader === `Bearer ${cronSecret}`;
 
