@@ -3,14 +3,9 @@ import db from "../../db.server";
 
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
-
-  // 1. Retrieve the shop from the 'state' parameter passed during the initial OAuth request
   const shop = url.searchParams.get("state");
   
   console.log("shop (from state)", shop);
-
-  // 2. CRITICAL: If 'shop' is missing, we cannot construct the return URL.
-  // We throw an error instead of redirecting to a hardcoded test store.
   if (!shop) {
     console.error("Missing shop state in Instagram callback");
     throw new Response("Missing shop parameter in state. Cannot redirect to Shopify Admin.", { status: 400 });
@@ -22,7 +17,7 @@ export const loader = async ({ request }) => {
   const cleanShopName = shop.replace(".myshopify.com", "");
   
   // Your App Handle (from your Partner Dashboard)
-  const appHandle = "instagram-86"; 
+  const appHandle = process.env.SHOPIFY_APP_HANDLE;
   
   // The base URL to redirect the user back to your app within Shopify Admin
   const baseAdminUrl = `https://admin.shopify.com/store/${cleanShopName}/apps/${appHandle}/app`;
@@ -150,10 +145,10 @@ export const loader = async ({ request }) => {
 
 async function exchangeCodeForToken(code) {
   const params = new URLSearchParams({
-    client_id: "1423828959321697",
-    client_secret: "ae136d847996bac4c139675d27b0ef7d",
+    client_id: process.env.INSTAGRAM_APP_ID,
+    client_secret: process.env.INSTAGRAM_APP_SECRET,
     grant_type: "authorization_code",
-    redirect_uri: `https://forums-decision-source-qualities.trycloudflare.com/instagram/callback`,
+    redirect_uri: `${process.env.SHOPIFY_APP_URL}/instagram/callback`,
     code: code,
   });
 
@@ -175,7 +170,7 @@ async function exchangeCodeForToken(code) {
 async function getLongLivedToken(shortLivedToken) {
   const url = new URL("https://graph.instagram.com/access_token");
   url.searchParams.append("grant_type", "ig_exchange_token");
-  url.searchParams.append("client_secret", "ae136d847996bac4c139675d27b0ef7d");
+  url.searchParams.append("client_secret", process.env.INSTAGRAM_APP_SECRET);
   url.searchParams.append("access_token", shortLivedToken);
 
   const response = await fetch(url);

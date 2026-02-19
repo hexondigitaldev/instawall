@@ -50,8 +50,8 @@ model InstagramConnection {
 model InstagramMedia {
   id                    String              @id @default(cuid())
   instagramConnectionId String
-  instagramMediaId      String              @unique
-  mediaType             String              // "IMAGE" or "VIDEO" or "CAROUSEL_ALBUM"
+  instagramMediaId      String              
+  mediaType             String              
   permalink             String              
   thumbnailUrl          String?            
   mediaUrl              String              

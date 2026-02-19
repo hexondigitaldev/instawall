@@ -3,7 +3,7 @@ import { authenticate } from "../shopify.server";
 export const action = async ({ request }) => {
   const { shop, payload } = await authenticate.webhook(request);
 
-  console.log("📋 Customer data request:", {
+  console.log("Customer data request:", {
     shop,
     customerId: payload.customer?.id,
     email: payload.customer?.email

@@ -14,21 +14,17 @@
       async init() {
         if (this.isInitialized) return;
         this.isInitialized = true;
-        console.log('Instagram Reels App: Initializing...');
         const blockElements = document.querySelectorAll('[data-instagram-reels-block]');
         if (blockElements.length === 0) {
-          console.log('Instagram Reels App: No blocks found on page');
           return;
         }
 
         const firstContainer = blockElements[0].querySelector('[data-shop]');
         if (!firstContainer) {
-          console.error('Instagram Reels App: No shop domain found');
           return;
         }
 
         const shop = firstContainer.dataset.shop;
-        console.log('Instagram Reels App: Shop domain:', shop);
 
         await this.fetchData(shop);
         blockElements.forEach((blockElement) => {
@@ -38,26 +34,20 @@
             this.renderBlock(blockId, container);
           }
         });
-
-        console.log('Instagram Reels App: Initialized successfully');
       },
 
       async fetchData(shop) {
         try {
-          const apiUrl = `https://forums-decision-source-qualities.trycloudflare.com/api/reels/${shop}`;
-          console.log('Instagram Reels App: Fetching from:', apiUrl);
+          const apiUrl = `https://vercal.websterzone.com/instawall/api/reels/${shop}`;
           const response = await fetch(apiUrl);
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
           const data = await response.json();
-          console.log('Instagram Reels App: Data received:', data);
           this.reelsData = data.media || [];
           this.feedSettings = data.settings || {};
           this.username = data.username || '';
           this.profilePictureUrl = data.profilePictureUrl || '';
-
-          console.log('Instagram Reels App: Loaded', this.reelsData.length, 'media items');
         } catch (error) {
           console.error('Instagram Reels App: Error fetching data:', error);
           this.reelsData = [];
@@ -66,7 +56,6 @@
       },
 
       registerBlock(blockId, container, settings) {
-        console.log('Instagram Reels App: Registering block:', blockId);
         this.blocks.set(blockId, { container, settings });
         if (this.reelsData !== null) {
           this.renderBlock(blockId, container);
@@ -95,9 +84,7 @@
         } else {
           feedHtml = this.renderSlider(media, settings, blockId);
         }
-
         container.innerHTML = titleHtml + feedHtml;
-        console.log('Instagram Reels App: Rendered block', blockId, 'with', media.length, 'items in', layout, 'layout');
       },
 
       renderGrid(media, settings, blockId) {

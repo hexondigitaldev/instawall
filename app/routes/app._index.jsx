@@ -265,7 +265,7 @@ export const loader = async ({ request }) => {
   const url = new URL(request.url);
   const instagramConnected = url.searchParams.get("instagram_connected");
   const settingsSaved = url.searchParams.get("settings_saved");
-  const APP_URL = process.env.DOMAIN;
+  const APP_URL = process.env.SHOPIFY_APP_URL;
   const connection = await db.instagramConnection.findUnique({
     where: { shop: session.shop },
     include: {
@@ -328,7 +328,7 @@ export const loader = async ({ request }) => {
   const responseJson = await response.json();
   const mainTheme = responseJson.data?.themes?.nodes[0];
   let isEmbedActive = false;
-  const EXTENSION_UUID = "019bd59e-accf-7915-9db1-d4ff4ad47e2b";
+  const EXTENSION_UUID = process.env.INSTAGRAM_EXTENSION_UUID;
   const BLOCK_HANDLE = "instagram_reels_embed";
 
   if (mainTheme?.files?.nodes[0]?.body?.content) {
@@ -351,6 +351,7 @@ export const loader = async ({ request }) => {
     shop: session.shop,
     isEmbedActive,
     domain: APP_URL,
+    instagramAppId: process.env.INSTAGRAM_APP_ID,
     isConnected: !!connection,
     connection: connection ? {
       username: connection.username,
@@ -418,7 +419,7 @@ export default function Index() {
   const syncFetcher = useFetcher();
   const shopify = useAppBridge();
 
-  const { shop, isEmbedActive, isConnected, connection, feedSettings: initialFeedSettings, justConnected, settingsSaved } = useLoaderData();
+  const { shop, isEmbedActive, isConnected, connection, feedSettings: initialFeedSettings, justConnected, settingsSaved, domain, instagramAppId } = useLoaderData();
 
   const [previewSettings, setPreviewSettings] = useState({
     feedTitle: initialFeedSettings?.feedTitle || "",
@@ -457,10 +458,10 @@ export default function Index() {
   }, [disconnectFetcher.data, settingsFetcher.data, syncFetcher.data]);
 
   const handleConnection = () => {
-    const redirectUri = encodeURIComponent(`https://forums-decision-source-qualities.trycloudflare.com/instagram/callback`);
+    const redirectUri = encodeURIComponent(`${domain}/instagram/callback`);
     const scopes = encodeURIComponent("instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights");
     const state = encodeURIComponent(shop);
-    return `https://www.instagram.com/oauth/authorize?force_reauth=true&client_id=1423828959321697&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${state}`;
+    return `https://www.instagram.com/oauth/authorize?force_reauth=true&client_id=${instagramAppId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${state}`;
   };
 
   const handleDisconnect = () => disconnectFetcher.submit({ action: "disconnect" }, { method: "POST" });

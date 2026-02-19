@@ -36,22 +36,15 @@
     
     if (window.InstagramReelsApp) {
       if (window.InstagramReelsApp.isInitialized) {
-        console.log('Instagram Reels Block: Registering with initialized embed');
         window.InstagramReelsApp.registerBlock(blockId, container, {});
       } else {
-        console.log('Instagram Reels Block: Waiting for embed to initialize...');
         setTimeout(registerWithEmbed, 100);
       }
     } else {
       if (registrationAttempts < maxAttempts) {
         setTimeout(registerWithEmbed, 100);
       } else {
-        container.innerHTML = `
-          <div class="instagram-reels-error" style="text-align: center; padding: 40px 20px;">
-            <p style="color: #d32f2f; margin-bottom: 10px;">Instagram Reels App Embed is not enabled</p>
-            <p style="color: #666; font-size: 14px;">Please enable it in Theme Editor → App Embeds → Instagram Reels App</p>
-          </div>
-        `;
+        container.innerHTML = ``;
       }
     }
   }
